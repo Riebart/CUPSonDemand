@@ -8,7 +8,7 @@ ARG LPADMIN_PASSWORD
 
 RUN apt update && \
     apt upgrade -y && \
-    apt install -y cups net-tools
+    apt install -y cups net-tools netcat-openbsd wget
 
 RUN useradd cupsadmin && \
     usermod -aG lpadmin cupsadmin && \

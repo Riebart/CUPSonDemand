@@ -11,6 +11,25 @@ function wait_for_idle {
     echo "'$1' is now idle"
 }
 
+# Step 1: Get the IP address of the printer
+printer_ip_address=$(
+(
+  seq 2 254 |
+  while read p
+  do
+    nc -vnzw1 10.0.0.$p 80 2>&1 &
+  done
+) | grep succeeded | cut -d ' ' -f3 |
+while read ip
+do
+  wget -qO- http://${ip} |
+    grep -c "http-equiv=author .*Canon Inc." >/dev/null 2>&1 &&
+    echo "$ip" &&
+    break
+done)
+
+echo "Printer IP address identified as ${printer_ip_address}"
+
 mkdir -p /etc/cups
 
 if [ ! -f /etc/cups/first_run ]
@@ -24,6 +43,17 @@ then
     cp -ar /etc/cups.orig/* /etc/cups/
     touch /etc/cups/first_run
 fi
+
+(
+  grep -cir "$printer_ip_address" /etc/cups >/dev/null 2>&1 &&
+  echo "Printer IP address present in configs"
+) || (
+  echo "Printer IP address not present in configs, swapping it"
+  current_printer_ip=$(
+    grep -ir ipp:// /etc/cups | cut -d ' ' -f2 | cut -d '/' -f3 | sort | uniq
+  )
+  find /etc/cups -type f | while read f; do sed -i "s|//${current_printer_ip}|//${printer_ip_address}|" "$f"; done
+)
 
 service cups start
 
